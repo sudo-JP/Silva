@@ -3,6 +3,6 @@
 
 class WaterLevel {
 public: 
-    WaterLevel();
+    WaterLevel() {};
     int get_water_level();
 };

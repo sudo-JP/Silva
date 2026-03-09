@@ -4,7 +4,7 @@
 
 class Temperature {
 public:
-    Temperature();
+    Temperature() {};
     void begin();
     float get_humidity();
     float get_temperature();

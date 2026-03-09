@@ -3,6 +3,6 @@
 
 class SoilMoisture {
 public:
-    SoilMoisture();
+    SoilMoisture() {};
     int get_soil_moisture();
 };
