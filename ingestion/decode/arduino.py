@@ -7,6 +7,10 @@ from db.timescale import TimescaleDB
 from dataclasses import dataclass
 from fastcrc import crc16
 
+BYTE_SIZE = 8
+BYTE_MASK = 0xFF
+MAGIC = 0xBEEF
+
 @dataclass
 class Payload:
     magic: int 
@@ -14,7 +18,6 @@ class Payload:
     humid: int 
     water_level: int 
     soil_moisture: int 
-    checksum: int
 
 
 """// 12 Bytes 
@@ -37,6 +40,8 @@ class ArduinoDecoder:
     FMT_STR = '<HhhhhH'
     STRUCT_SIZE = struct.calcsize(FMT_STR)
 
+    CHECKSUM_FMT = '<H'
+    CHECKSUM_SIZE = struct.calcsize(CHECKSUM_FMT)
     MAGIC = 0xBEEF 
 
     def __init__(self, db: TimescaleDB) -> None:
@@ -51,10 +56,7 @@ class ArduinoDecoder:
         if self.ser.in_waiting >= ArduinoDecoder.STRUCT_SIZE: 
             raw = self.ser.read(ArduinoDecoder.STRUCT_SIZE)
             try: 
-                data_tuple = struct.unpack(ArduinoDecoder.FMT_STR, raw)
-                magic, temperature, humid, water, soil, checksum = data_tuple
-                payload = Payload(magic, temperature, humid, water, soil, checksum)
-                return self.validate_data(payload)
+                return self.validate_unpack_data(raw)
             except struct.error as e:
                 print(f"Struct unpacking error: {e}")
                 self.ser.reset_input_buffer()
@@ -63,8 +65,19 @@ class ArduinoDecoder:
     """
     Return the payload if data is correct, otherwise None
     """
-    def validate_data(self, payload: Payload) -> Optional[Payload]: 
-        pass
+    def validate_unpack_data(self, raw: bytes) -> Optional[Payload]: 
+        # Unpack everything 
+        *payload_values, received_crc = struct.unpack(ArduinoDecoder.FMT_STR, raw)
+        magic, temp, humid, water, soil = payload_values
+
+        payload_bytes = raw[:-2] # Omit checksum
+
+        validate_sum = crc16.xmodem(payload_bytes)
+        if (magic != MAGIC or validate_sum != received_crc):
+            return None 
+
+        payload = Payload(magic, temp, humid, water, soil)
+        return payload
 
     def save_to_db(self, data: tuple) -> None: 
         pass
